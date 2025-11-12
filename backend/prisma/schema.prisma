@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// 1️⃣ USER MODEL
+// ================================
+model User {
+  id                  String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  role                Role
+  full_name           String           @db.VarChar(100)
+  email               String           @unique @db.VarChar(100)
+  password_hash       String           @db.Text
+  profile_picture     String?          @db.Text
+  gender              String?          @db.VarChar(20)
+  age                 Int?
+  medical_history     String?          @db.Text
+  specialization      String?          @db.VarChar(100)
+  license_number      String?          @db.VarChar(100)
+  experience_years    Int?
+  hospital_clinic     String?          @db.VarChar(150)
+  is_verified         Boolean          @default(false)
+  created_at          DateTime         @default(now())
+  updated_at          DateTime         @default(now()) @updatedAt
+
+  // Relations
+  appointmentsAsPatient   Appointment[]      @relation("PatientAppointments")
+  appointmentsAsDoctor    Appointment[]      @relation("DoctorAppointments")
+  reports                 MedicalReport[]    @relation("PatientReports")
+  reportedByDoctors       MedicalReport[]    @relation("DoctorReports")
+  sentMessages            Message[]          @relation("SenderMessages")
+  receivedMessages        Message[]          @relation("ReceiverMessages")
+  videoCallsAsPatient     VideoCall[]        @relation("PatientCalls")
+  videoCallsAsDoctor      VideoCall[]        @relation("DoctorCalls")
+
+  aiLogs                  AiLog[]            @relation("PatientAiLogs")
+  adminLogs               AdminLog[]         @relation("AdminActions")
+  targetedInLogs          AdminLog[]         @relation("TargetedUsers")
+    patientPayments   Payment[] @relation("PaymentPatient")
+
+  // Payments where this user is the DOCTOR (recipient)
+  doctorPayments    Payment[] @relation("PaymentDoctor")
+}
+
+enum Role {
+  patient
+  doctor
+  admin
+}
+
+// ================================
+// 2️⃣ APPOINTMENT MODEL
+// ================================
+model Appointment {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  patient           User      @relation("PatientAppointments", fields: [patient_id], references: [id])
+  patient_id        String    @db.Uuid
+  doctor            User      @relation("DoctorAppointments", fields: [doctor_id], references: [id])
+  doctor_id         String    @db.Uuid
+  appointment_date  DateTime
+  status            AppointmentStatus @default(pending)
+  payment_status    PaymentStatus     @default(pending)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @default(now()) @updatedAt
+
+  // Relations
+  messages          Message[]
+  videoCall         VideoCall?
+  payment           Payment?
+}
+
+enum AppointmentStatus {
+  pending
+  approved
+  completed
+  cancelled
+}
+
+// Reuse PaymentStatus from Payment model
+enum PaymentStatus {
+  pending
+  paid
+  failed
+}
+
+// ================================
+// 3️⃣ MEDICAL REPORT MODEL
+// ================================
+model MedicalReport {
+  id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  patient         User        @relation("PatientReports", fields: [patient_id], references: [id])
+  patient_id      String      @db.Uuid
+  doctor          User?       @relation("DoctorReports", fields: [doctor_id], references: [id])
+  doctor_id       String?     @db.Uuid
+  report_type     ReportType  @default(other)
+  file_url        String      @db.Text
+  notes           String?
+  uploaded_at     DateTime    @default(now())
+}
+
+enum ReportType {
+  ECG
+  lab
+  prescription
+  other
+}
+
+// ================================
+// 4️⃣ MESSAGE MODEL
+// ================================
+model Message {
+  id              String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sender          User         @relation("SenderMessages", fields: [sender_id], references: [id])
+  sender_id       String       @db.Uuid
+  receiver        User         @relation("ReceiverMessages", fields: [receiver_id], references: [id])
+  receiver_id     String       @db.Uuid
+  appointment     Appointment? @relation(fields: [appointment_id], references: [id])
+  appointment_id  String?      @db.Uuid
+  message         String       @db.Text
+  message_type    MessageType  @default(text)
+  created_at      DateTime     @default(now())
+}
+
+enum MessageType {
+  text
+  image
+  file
+}
+
+// ================================
+// 5️⃣ VIDEO CALL MODEL
+// ================================
+model VideoCall {
+ id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  appointment     Appointment @relation(fields: [appointment_id], references: [id])
+  appointment_id  String      @db.Uuid @unique  // ✅ Now enforced as one-to-one
+  patient         User              @relation("PatientCalls", fields: [patient_id], references: [id])
+  patient_id      String            @db.Uuid
+  doctor          User              @relation("DoctorCalls", fields: [doctor_id], references: [id])
+  doctor_id       String            @db.Uuid
+  start_time      DateTime?
+  end_time        DateTime?
+  status          VideoCallStatus   @default(scheduled)
+  recording_url   String?
+  created_at      DateTime          @default(now())
+}
+
+enum VideoCallStatus {
+  scheduled
+  ongoing
+  completed
+  missed
+}
+
+// ================================
+// 6️⃣ PAYMENT MODEL
+// ================================
+model Payment {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  appointment      Appointment @relation(fields: [appointment_id], references: [id])
+  appointment_id   String    @db.Uuid @unique
+  patient          User      @relation("PaymentPatient", fields: [patient_id], references: [id])
+  patient_id       String    @db.Uuid
+  doctor           User      @relation("PaymentDoctor", fields: [doctor_id], references: [id])
+  doctor_id        String    @db.Uuid
+  amount           Decimal   @db.Decimal(10, 2)
+  payment_gateway  PaymentGateway
+  payment_status   PaymentStatus @default(pending)
+  transaction_id   String?
+  created_at       DateTime  @default(now())
+}
+
+enum PaymentGateway {
+  chapa
+  telebirr
+}
+
+// ================================
+// 7️⃣ AI LOG MODEL (OPTIONAL)
+// ================================
+model AiLog {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  patient     User      @relation("PatientAiLogs", fields: [patient_id], references: [id])
+  patient_id  String    @db.Uuid
+  query       String    @db.Text
+  response    String    @db.Text
+  created_at  DateTime  @default(now())
+}
+
+// ================================
+// 8️⃣ ADMIN LOG MODEL
+// ================================
+model AdminLog {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  admin           User      @relation("AdminActions", fields: [admin_id], references: [id])
+  admin_id        String    @db.Uuid
+  action          String    @db.Text
+  target_user     User?     @relation("TargetedUsers", fields: [target_user_id], references: [id])
+  target_user_id  String?   @db.Uuid
+  created_at      DateTime  @default(now())
+}
