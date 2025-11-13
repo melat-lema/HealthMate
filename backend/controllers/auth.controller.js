@@ -1,0 +1,74 @@
+// backend/controllers/auth.controller.js
+const AppError = require('../utils/AppError');
+const { signupPatient } = require('../services/auth.service');
+const { login } = require('../services/auth.service');
+
+const signupPatientHandler = async (req, res, next) => {
+  const { fullName, email, password, confirmPassword } = req.body;
+
+  // Validation
+  if (!fullName || !email || !password || !confirmPassword) {
+    return next(new AppError('All fields are required', 400));
+  }
+  if (!/\S+@\S+\.\S+/.test(email)) {
+    return next(new AppError('Invalid email format', 400));
+  }
+
+  if (password !== confirmPassword) {
+    return next(new AppError('Passwords do not match', 400));
+  }
+  if (password.length < 6) {
+    return next(new AppError('Password must be at least 6 characters', 400));
+  }
+
+  try {
+    const patient = await signupPatient({ fullName, email, password });
+    res.status(201).json({
+      status: 'success',
+      data: { patient }
+    });
+  } catch (err) {
+    if (err.code === 'P2002') {
+      return next(new AppError('Email already in use', 409));
+    }
+    next(err);
+  }
+};
+const loginHandler = async (req, res, next) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return next(new AppError('Email and password are required', 400));
+  }
+
+  try {
+    const { token, user } = await login({ email, password });
+
+    // Set JWT in httpOnly cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // use HTTPS in production
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        is_verified: user.is_verified
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+module.exports = { signupPatientHandler,
+    loginHandler
+ };
