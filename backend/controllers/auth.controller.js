@@ -98,7 +98,13 @@ const signupDoctorHandler = async (req, res, next) => {
       res.status(201).json({
         status: 'success',
         message: 'Doctor account created. Awaiting admin verification.',
-        user: doctor
+        user: {
+    id: doctor.id, // 👈 add this
+    full_name: doctor.full_name,
+    email: doctor.email,
+    specialization: doctor.specialization,
+    license_url: licenseUrl
+  }
       });
     } catch (err) {
       if (err.code === 'P2002') {

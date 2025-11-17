@@ -3,22 +3,39 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function DoctorPending() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const doctorId = searchParams.get('id');
 
-  // Simulate fetching user data (replace with real API call later)
   useEffect(() => {
-    // In a real app, you'd fetch the user's info from /api/auth/me
-    const mockUser = {
-      full_name: "Dr. Ahmed Hassan",
-      specialization: "Cardiology",
-      license_file: "Application-letter.pdf"
-    };
-    setUser(mockUser);
-  }, []);
+    if (!doctorId) {
+      setLoading(false);
+      return;
+    }
 
-  if (!user) return null;
+    const fetchDoctor = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/doctor/${doctorId}`);
+        const data = await res.json();
+        if (res.ok) {
+          setUser(data.doctor);
+        }
+      } catch (err) {
+        console.error('Failed to fetch doctor:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoctor();
+  }, [doctorId]);
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (!user) return <div className="min-h-screen flex items-center justify-center">Doctor not found</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-green-50 flex items-center justify-center p-4">
@@ -105,14 +122,11 @@ export default function DoctorPending() {
         <div className="bg-white border border-gray-200 rounded-lg p-4 mt-6">
           <h3 className="font-semibold text-gray-900 mb-2">Submitted Information</h3>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <span className="font-medium">Name:</span>
-            <span>{user.full_name}</span>
-            <span className="font-medium">Specialization:</span>
-            <span>{user.specialization}</span>
-            <span className="font-medium">License File:</span>
-            <span className="text-blue-600 underline cursor-pointer">
-              {user.license_file}
-            </span>
+            <span className="text-black">Name:</span>
+            <span className='text-gray-300'>{user.full_name}</span>
+            <span className="text-black">Specialization:</span>
+            <span className='text-gray-300'>{user.specialization}</span>
+           
           </div>
         </div>
       </div>

@@ -98,7 +98,7 @@ export default function DoctorSignup() {
         toast.success('Account created! Awaiting admin verification.');
         // Redirect to pending page
         setTimeout(() => {
-          window.location.href = '/doctor/pending';
+           window.location.href = `/doctor/pending?id=${data.user.id}`
         }, 1500);
       } else {
         toast.error(data.message || 'Signup failed. Please try again.');

@@ -80,7 +80,7 @@ export default function LoginPage() {
             if (data.user.is_verified) {
               window.location.href = '/doctor/dashboard';
             } else {
-              window.location.href = '/doctor/pending';
+             window.location.href = `/doctor/pending?id=${data.user.id}`
             }
           } else if (data.user.role === 'admin') {
             window.location.href = '/admin/dashboard';
