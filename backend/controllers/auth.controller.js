@@ -2,7 +2,8 @@
 const AppError = require('../utils/AppError');
 const { signupPatient } = require('../services/auth.service');
 const { login } = require('../services/auth.service');
-
+const {signupDoctor} =require("../services/auth.service");
+const prisma = require('../db');
 const signupPatientHandler = async (req, res, next) => {
   const { fullName, email, password, confirmPassword } = req.body;
 
@@ -67,8 +68,49 @@ const loginHandler = async (req, res, next) => {
   }
 };
 
+const signupDoctorHandler = async (req, res, next) => {
+  // First, handle file upload
+
+
+    const { fullName, email, password, confirmPassword, licenseNumber, hospitalClinic, experienceYears, specialization } = req.body;
+    const licenseUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    // Validation
+    if (!fullName || !email || !password || !confirmPassword || !licenseNumber) {
+      return next(new AppError('All required fields must be filled', 400));
+    }
+    if (password !== confirmPassword) {
+      return next(new AppError('Passwords do not match', 400));
+    }
+    if (password.length < 6) {
+      return next(new AppError('Password must be at least 6 characters', 400));
+    }
+
+    try {
+      const doctor = await signupDoctor({ fullName, email, password, licenseNumber, hospitalClinic, experienceYears, specialization });
+      
+      // Update user with license URL
+      await prisma.user.update({
+        where: { id: doctor.id },
+        data: { license_url: licenseUrl  } // or create a new field `license_url`
+      });
+
+      res.status(201).json({
+        status: 'success',
+        message: 'Doctor account created. Awaiting admin verification.',
+        user: doctor
+      });
+    } catch (err) {
+      if (err.code === 'P2002') {
+        return next(new AppError('Email already in use', 409));
+      }
+      next(err);
+    }
+  ;
+};
 
 
 module.exports = { signupPatientHandler,
-    loginHandler
+    loginHandler,
+    signupDoctorHandler
  };

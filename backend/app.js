@@ -9,8 +9,11 @@ app.use(cors({
     origin: process.env.FRONTEND_URL, // Allow all origins, adjust as necessary for security
     optionsSuccessStatus: 200, // For legacy browser support
 }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
 app.use(router);
+
 app.use((err, req, res, next) => {
   res.status(err.statusCode || 500).json({
     status: 'error',

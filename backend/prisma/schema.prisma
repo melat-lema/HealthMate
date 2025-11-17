@@ -6,6 +6,12 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+enum Specialization {
+  Cardiology
+  InterventionalCardiology
+  CardiacSurgery
+  HeartFailureSpecialist
+}
 
 // ================================
 // 1️⃣ USER MODEL
@@ -21,6 +27,7 @@ model User {
   age                 Int?
   medical_history     String?          @db.Text
   specialization      String?          @db.VarChar(100)
+    license_url         String?   @db.Text  
   license_number      String?          @db.VarChar(100)
   experience_years    Int?
   hospital_clinic     String?          @db.VarChar(150)
